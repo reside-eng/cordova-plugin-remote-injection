@@ -1,10 +1,7 @@
-# Deprecation Notice
+This plugin is a fork in response to the UIWebView API Deprecation.
 
-As the casual onlooker can tell this repo hasn't been updated in a while.  Unfortunately this project is deprecated.  If anyone would like to fork it and address issues please do so but PRs won't be reviewed and merged into this repo.  Cordova is not simple to test (or at least wasn't when this was maintained) and I don't have the time to contribute to maintaining it.
-
-If the repos is forked and maintained let me know and we'll link to your repo here.
-
-- Brad Reynolds
+ITMS-90809: Deprecated API Usage - Apple will stop accepting submissions of apps that use UIWebView APIs. 
+See https://developer.apple.com/documentation/uikit/uiwebview for more information.
 
 ---
 
@@ -13,8 +10,7 @@ The remote injection plugin allows a remote site to interact with [cordova](http
 ## Features
 * Injects cordova and installed plugin JS into the webview for any remotely browsed page allowing them the same access to the cordova object and its plugins as a packaged cordova app.
 * After a developer defined interval will prompt the user if the loading of the main site is taking too long.  The user's options are to wait or retry.  If the user waits the prompt will be displayed again after the developer defined interval.  If the site loads while the dialog is displayed the dialog is dismissed.
-* Support for iOS and Android platforms.
-* Supports both UIWebView and WKWebView on iOS out of the box (added in v0.4.0).
+* Support for iOS (WKWebView Only) and Android platforms.
 
 ## Installation
 ```bash
