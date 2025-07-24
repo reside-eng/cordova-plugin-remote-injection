@@ -129,23 +129,17 @@ public class RemoteInjectionPlugin extends CordovaPlugin {
         // Initialize the cordova plugin registry.
         jsPaths.add("www/cordova_plugins.js");
 
-        // The way that I figured out to inject for android is to inject it as a script
-        // tag with the full JS encoded as a data URI
-        // (https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs).  The script tag
-        // is appended to the DOM and executed via a javascript URL (e.g. javascript:doJsStuff()).
         StringBuilder jsToInject = new StringBuilder();
         for (String path: jsPaths) {
             jsToInject.append(readFile(cordova.getActivity().getResources().getAssets(), path));
         }
-        String jsUrl = "javascript:var script = document.createElement('script');";
-        jsUrl += "script.src=\"data:text/javascript;charset=utf-8;base64,";
+  
+        String base64 = Base64.encodeToString(jsToInject.toString().getBytes(), Base64.NO_WRAP);
 
-        jsUrl += Base64.encodeToString(jsToInject.toString().getBytes(), Base64.NO_WRAP);
-        jsUrl += "\";";
+        // Construct the JavaScript to inject
+        String jsWrapper = "javascript:(function() {" +  "var decoded = atob(\"" + base64 + "\");" + "eval(decoded);" + "})()";
 
-        jsUrl += "document.getElementsByTagName('head')[0].appendChild(script);";
-
-        webView.getEngine().loadUrl(jsUrl, false);
+        webView.getEngine().loadUrl(jsWrapper, false);
     }
 
     private String readFile(AssetManager assets, String filePath) {

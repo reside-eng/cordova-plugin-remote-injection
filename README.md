@@ -1,7 +1,9 @@
-This plugin is a fork in response to the UIWebView API Deprecation.
+This plugin is a fork in response to:
 
-ITMS-90809: Deprecated API Usage - Apple will stop accepting submissions of apps that use UIWebView APIs. 
-See https://developer.apple.com/documentation/uikit/uiwebview for more information.
+- the UIWebView API Deprecation. TMS-90809: Deprecated API Usage - Apple will stop accepting submissions of apps that use UIWebView APIs. See https://developer.apple.com/documentation/uikit/uiwebview for more information.
+- fix android injection method to work with most CSPs
+
+
 
 ---
 
