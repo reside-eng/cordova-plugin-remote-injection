@@ -130,39 +130,30 @@
         WKWebView *wkWebView = (WKWebView *)webView;
         
         // Inject JavaScript to pause external scripts and prevent errors
-        NSString *pauseScript = @""
-            "(function() {"
-                "if (window.cordovaRemoteInjection) return;"
-                "window.cordovaRemoteInjection = { backgrounded: true };"
-                
-                "// Pause common external script operations"
-                "if (window.pendo && window.pendo.pause) {"
-                    "try { window.pendo.pause(); } catch(e) { console.log('Pendo pause error:', e); }"
-                "}"
-                
-                "// Clear intervals and timeouts that might cause errors"
-                "var originalSetInterval = window.setInterval;"
-                "var originalSetTimeout = window.setTimeout;"
-                "window.cordovaRemoteInjection.intervals = [];"
-                "window.cordovaRemoteInjection.timeouts = [];"
-                
-                "window.setInterval = function(fn, delay) {"
-                    "if (window.cordovaRemoteInjection.backgrounded) return null;"
-                    "var id = originalSetInterval(fn, delay);"
-                    "window.cordovaRemoteInjection.intervals.push(id);"
-                    "return id;"
-                "};"
-                
-                "window.setTimeout = function(fn, delay) {"
-                    "if (window.cordovaRemoteInjection.backgrounded) return null;"
-                    "var id = originalSetTimeout(fn, delay);"
-                    "window.cordovaRemoteInjection.timeouts.push(id);"
-                    "return id;"
-                "};"
-                
-                "console.log('CDVRemoteInjection: External scripts paused for backgrounding');"
-            "})();"
-        "";
+        NSString *pauseScript = @"(function() { "
+            "if (window.cordovaRemoteInjection) return; "
+            "window.cordovaRemoteInjection = { backgrounded: true }; "
+            "if (window.pendo && window.pendo.pause) { "
+                "try { window.pendo.pause(); } catch(e) { console.log('Pendo pause error:', e); } "
+            "} "
+            "var originalSetInterval = window.setInterval; "
+            "var originalSetTimeout = window.setTimeout; "
+            "window.cordovaRemoteInjection.intervals = []; "
+            "window.cordovaRemoteInjection.timeouts = []; "
+            "window.setInterval = function(fn, delay) { "
+                "if (window.cordovaRemoteInjection.backgrounded) return null; "
+                "var id = originalSetInterval(fn, delay); "
+                "window.cordovaRemoteInjection.intervals.push(id); "
+                "return id; "
+            "}; "
+            "window.setTimeout = function(fn, delay) { "
+                "if (window.cordovaRemoteInjection.backgrounded) return null; "
+                "var id = originalSetTimeout(fn, delay); "
+                "window.cordovaRemoteInjection.timeouts.push(id); "
+                "return id; "
+            "}; "
+            "console.log('CDVRemoteInjection: External scripts paused for backgrounding'); "
+        "})();";
         
         [wkWebView evaluateJavaScript:pauseScript completionHandler:^(id result, NSError *error) {
             if (error) {
@@ -184,19 +175,14 @@
         WKWebView *wkWebView = (WKWebView *)webView;
         
         // Inject JavaScript to resume external scripts
-        NSString *resumeScript = @""
-            "(function() {"
-                "if (!window.cordovaRemoteInjection) return;"
-                "window.cordovaRemoteInjection.backgrounded = false;"
-                
-                "// Resume common external script operations"
-                "if (window.pendo && window.pendo.resume) {"
-                    "try { window.pendo.resume(); } catch(e) { console.log('Pendo resume error:', e); }"
-                "}"
-                
-                "console.log('CDVRemoteInjection: External scripts resumed from backgrounding');"
-            "})();"
-        "";
+        NSString *resumeScript = @"(function() { "
+            "if (!window.cordovaRemoteInjection) return; "
+            "window.cordovaRemoteInjection.backgrounded = false; "
+            "if (window.pendo && window.pendo.resume) { "
+                "try { window.pendo.resume(); } catch(e) { console.log('Pendo resume error:', e); } "
+            "} "
+            "console.log('CDVRemoteInjection: External scripts resumed from backgrounding'); "
+        "})();";
         
         [wkWebView evaluateJavaScript:resumeScript completionHandler:^(id result, NSError *error) {
             if (error) {
