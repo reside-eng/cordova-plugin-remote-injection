@@ -19,6 +19,8 @@ is set to 0.
 @property (readonly) BOOL showConnectionErrorDialog;
     
 - (id) findWebView;
+- (void)applicationDidEnterBackground:(NSNotification *)notification;
+- (void)applicationWillEnterForeground:(NSNotification *)notification;
 @end
 
 @protocol CDVRemoteInjectionWebViewDelegate <NSObject>

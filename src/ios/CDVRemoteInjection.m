@@ -47,6 +47,17 @@
 {
     [super pluginInitialize];
     
+    // Add observers for app lifecycle events to handle background/foreground transitions
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(applicationDidEnterBackground:)
+                                                 name:UIApplicationDidEnterBackgroundNotification
+                                               object:nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(applicationWillEnterForeground:)
+                                                 name:UIApplicationWillEnterForegroundNotification
+                                               object:nil];
+    
     // Read configuration for JS to inject before injecting cordova.
     NSString *value = [self settingForKey:@"CRIInjectFirstFiles"];
     if (value != NULL) {
@@ -105,6 +116,102 @@
 - (id)settingForKey:(NSString *)key
 {
     return [self.commandDelegate.settings objectForKey:[key lowercaseString]];
+}
+
+/*
+ * Handle app entering background - notify webview to pause external scripts gracefully
+ */
+- (void)applicationDidEnterBackground:(NSNotification *)notification
+{
+    NSLog(@"CDVRemoteInjection: App entering background, pausing external scripts");
+    
+    id webView = [self findWebView];
+    if ([webView isKindOfClass:[WKWebView class]]) {
+        WKWebView *wkWebView = (WKWebView *)webView;
+        
+        // Inject JavaScript to pause external scripts and prevent errors
+        NSString *pauseScript = @""
+            "(function() {"
+                "if (window.cordovaRemoteInjection) return;"
+                "window.cordovaRemoteInjection = { backgrounded: true };"
+                
+                "// Pause common external script operations"
+                "if (window.pendo && window.pendo.pause) {"
+                    "try { window.pendo.pause(); } catch(e) { console.log('Pendo pause error:', e); }"
+                "}"
+                
+                "// Clear intervals and timeouts that might cause errors"
+                "var originalSetInterval = window.setInterval;"
+                "var originalSetTimeout = window.setTimeout;"
+                "window.cordovaRemoteInjection.intervals = [];"
+                "window.cordovaRemoteInjection.timeouts = [];"
+                
+                "window.setInterval = function(fn, delay) {"
+                    "if (window.cordovaRemoteInjection.backgrounded) return null;"
+                    "var id = originalSetInterval(fn, delay);"
+                    "window.cordovaRemoteInjection.intervals.push(id);"
+                    "return id;"
+                "};"
+                
+                "window.setTimeout = function(fn, delay) {"
+                    "if (window.cordovaRemoteInjection.backgrounded) return null;"
+                    "var id = originalSetTimeout(fn, delay);"
+                    "window.cordovaRemoteInjection.timeouts.push(id);"
+                    "return id;"
+                "};"
+                
+                "console.log('CDVRemoteInjection: External scripts paused for backgrounding');"
+            "})();"
+        "";
+        
+        [wkWebView evaluateJavaScript:pauseScript completionHandler:^(id result, NSError *error) {
+            if (error) {
+                NSLog(@"CDVRemoteInjection: Error pausing external scripts: %@", error.localizedDescription);
+            }
+        }];
+    }
+}
+
+/*
+ * Handle app entering foreground - notify webview to resume external scripts
+ */
+- (void)applicationWillEnterForeground:(NSNotification *)notification
+{
+    NSLog(@"CDVRemoteInjection: App entering foreground, resuming external scripts");
+    
+    id webView = [self findWebView];
+    if ([webView isKindOfClass:[WKWebView class]]) {
+        WKWebView *wkWebView = (WKWebView *)webView;
+        
+        // Inject JavaScript to resume external scripts
+        NSString *resumeScript = @""
+            "(function() {"
+                "if (!window.cordovaRemoteInjection) return;"
+                "window.cordovaRemoteInjection.backgrounded = false;"
+                
+                "// Resume common external script operations"
+                "if (window.pendo && window.pendo.resume) {"
+                    "try { window.pendo.resume(); } catch(e) { console.log('Pendo resume error:', e); }"
+                "}"
+                
+                "console.log('CDVRemoteInjection: External scripts resumed from backgrounding');"
+            "})();"
+        "";
+        
+        [wkWebView evaluateJavaScript:resumeScript completionHandler:^(id result, NSError *error) {
+            if (error) {
+                NSLog(@"CDVRemoteInjection: Error resuming external scripts: %@", error.localizedDescription);
+            }
+        }];
+    }
+}
+
+/*
+ * Clean up notification observers when plugin is deallocated
+ */
+- (void)dealloc
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 @end
