@@ -68,6 +68,10 @@
     
     for (path in jsPaths) {
         NSString *jsFilePath = [[NSBundle mainBundle] pathForResource:path ofType:nil];
+        if (jsFilePath == nil) {
+            NSLog(@"Skipping JS file missing from the app bundle: '%@'.", path);
+            continue;
+        }
         
         NSURL *jsURL = [NSURL fileURLWithPath:jsFilePath];
         NSString *js = [NSString stringWithContentsOfFile:jsURL.path encoding:NSUTF8StringEncoding error:nil];
@@ -97,19 +101,46 @@
     // cordova_plugins.js).  The reason for this is the WebView will attempt to load the
     // file in the origin of the page (e.g. https://example.com/plugins/plugin/plugin.js).
     // By loading them first cordova will skip the loading process altogether.
-    NSDirectoryEnumerator *directoryEnumerator = [[NSFileManager defaultManager] enumeratorAtPath:[[NSBundle mainBundle] pathForResource:@"www/plugins" ofType:nil]];
-    
-    NSString *path;
-    while (path = [directoryEnumerator nextObject])
-    {
-        if ([path hasSuffix: @".js"]) {
-            [jsPaths addObject: [NSString stringWithFormat:@"%@/%@", @"www/plugins", path]];
-        }
-    }
+    //
+    // The file list comes from the manifest cordova generates, cordova_plugins.js,
+    // not from scanning www/plugins for a file extension: module files are not
+    // required to end in .js (onesignal-cordova-plugin 5.5.x ships dist/index.cjs),
+    // and a module the manifest declares but the page never receives breaks
+    // cordova's module resolution for every plugin.
+    [jsPaths addObjectsFromArray:[self pluginModuleFiles]];
+
     // Initialize cordova plugin registry.
     [jsPaths addObject:@"www/cordova_plugins.js"];
     
     return jsPaths;
+}
+
+/*
+ Returns the plugin module files declared in www/cordova_plugins.js, in manifest
+ order, as bundle-relative paths.
+ */
+- (NSArray *) pluginModuleFiles
+{
+    NSMutableArray *files = [NSMutableArray new];
+
+    NSString *manifestPath = [[NSBundle mainBundle] pathForResource:@"www/cordova_plugins.js" ofType:nil];
+    NSString *manifest = manifestPath ? [NSString stringWithContentsOfFile:manifestPath encoding:NSUTF8StringEncoding error:nil] : nil;
+    if (manifest == nil) {
+        NSLog(@"Unable to read www/cordova_plugins.js.  No plugin modules will be injected.");
+        return files;
+    }
+
+    NSRegularExpression *fileEntry = [NSRegularExpression regularExpressionWithPattern:@"\"file\"\\s*:\\s*\"([^\"]+)\""
+                                                                               options:0
+                                                                                 error:nil];
+    [fileEntry enumerateMatchesInString:manifest
+                                options:0
+                                  range:NSMakeRange(0, manifest.length)
+                             usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags flags, BOOL *stop) {
+        [files addObject:[NSString stringWithFormat:@"www/%@", [manifest substringWithRange:[match rangeAtIndex:1]]]];
+    }];
+
+    return files;
 }
 
 /*
