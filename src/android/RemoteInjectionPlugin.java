@@ -13,7 +13,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -22,11 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class RemoteInjectionPlugin extends CordovaPlugin {
     private static String TAG = "RemoteInjectionPlugin";
     private static Pattern REMOTE_URL_REGEX = Pattern.compile("^http(s)?://.*");
+    private static Pattern MODULE_FILE_PATTERN = Pattern.compile("\"file\"\\s*:\\s*\"([^\"]+)\"");
 
 
     // List of files to inject before injecting Cordova.
@@ -124,7 +125,13 @@ public class RemoteInjectionPlugin extends CordovaPlugin {
         // cordova_plugins.js).  The reason for this is the WebView will attempt to load the
         // file in the origin of the page (e.g. https://truckmover.com/plugins/plugin/plugin.js).
         // By loading them first cordova will skip its loading process altogether.
-        jsPaths.addAll(jsPathsToInject(cordova.getActivity().getResources().getAssets(), "www/plugins"));
+        //
+        // The file list comes from the manifest cordova generates, cordova_plugins.js,
+        // not from scanning www/plugins for a file extension: module files are not
+        // required to end in .js (onesignal-cordova-plugin 5.5.x ships dist/index.cjs),
+        // and a module the manifest declares but the page never receives breaks
+        // cordova's module resolution for every plugin.
+        jsPaths.addAll(pluginModuleFiles(cordova.getActivity().getResources().getAssets()));
 
         // Initialize the cordova plugin registry.
         jsPaths.add("www/cordova_plugins.js");
@@ -169,33 +176,21 @@ public class RemoteInjectionPlugin extends CordovaPlugin {
     }
 
     /**
-     * Searches the provided path for javascript files recursively.
+     * Returns the plugin module files declared in www/cordova_plugins.js, in
+     * manifest order, as asset paths.
      *
      * @param assets
-     * @param path start path
-     * @return found JS files
+     * @return the declared module files
      */
-    private List<String> jsPathsToInject(AssetManager assets, String path){
-        List jsPaths = new ArrayList<String>();
+    private List<String> pluginModuleFiles(AssetManager assets) {
+        List<String> files = new ArrayList<String>();
 
-        try {
-            for (String filePath: assets.list(path)) {
-                String fullPath = path + File.separator + filePath;
-
-                if (fullPath.endsWith(".js")) {
-                    jsPaths.add(fullPath);
-                } else {
-                    List<String> childPaths = jsPathsToInject(assets, fullPath);
-                    if (!childPaths.isEmpty()) {
-                        jsPaths.addAll(childPaths);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+        Matcher moduleFile = MODULE_FILE_PATTERN.matcher(readFile(assets, "www/cordova_plugins.js"));
+        while (moduleFile.find()) {
+            files.add("www/" + moduleFile.group(1));
         }
 
-        return jsPaths;
+        return files;
     }
 
     private static class RequestLifecycle {
